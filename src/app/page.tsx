@@ -11,12 +11,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SendHorizontal } from "lucide-react";
+import { SendHorizontal, Loader2 } from "lucide-react";
+import axios from "axios";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function LandingPage() {
   const [prompt, setPrompt] = useState<string>("");
   const [courseType, setCourseType] = useState<string>("full");
   const [loading, setLoading] = useState<boolean>(false);
+  const router = useRouter();
 
   const handleSuggestionClick = (
     selectedPrompt: string,
@@ -28,26 +32,46 @@ export default function LandingPage() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
+
     setLoading(true);
+    const toastId = toast.loading(
+      "VidCourse is mapping out your course architecture...",
+    );
+
     try {
-      console.log("Dispatching request payload:", { prompt, courseType });
-      // TODO: Connect database generation logic here
-    } catch (err) {
+      // Create a unique client-side crypto reference hash for this course
+      const uniqueCourseId = crypto.randomUUID();
+
+      // Fire payload straight to the backend API route endpoint
+      const response = await axios.post("/api/generate-course-layout", {
+        userInput: prompt,
+        courseId: uniqueCourseId,
+        type: courseType,
+      });
+
+      if (response.data?.success) {
+        toast.success("Course layout compiled perfectly!", { id: toastId });
+        // Send user instantly to their new dynamic course preview page
+        router.push(`/course/${uniqueCourseId}`);
+      }
+    } catch (err: any) {
       console.error(err);
+      toast.error(
+        err.response?.data?.error || "Failed to generate course structure.",
+        { id: toastId },
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen ">
       <Header />
 
-      {/* Main Container: Adjusted padding to change smoothly from mobile (px-4, pt-12) to desktop (md:pt-24) */}
       <main className="mx-auto flex max-w-4xl flex-col items-center justify-center px-4 pt-12 pb-16 text-center md:px-6 md:pt-24">
         {/* Core Hero Typographic Cluster */}
         <div className="space-y-3 px-2">
-          {/* Dynamic text sizing from text-3xl on mobile to text-[44px] on desktop */}
           <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 sm:text-4xl md:text-[44px] leading-tight">
             Learn Smarter with{" "}
             <span className="text-[#2563eb]">AI Video Courses</span>
@@ -59,19 +83,22 @@ export default function LandingPage() {
 
         {/* Compound Prompt Box Enclosure Block */}
         <div className="mt-8 w-full max-w-2xl rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:border-zinc-300 transition-all text-left">
-          {/* Responsive min-height for textarea to prevent excessive scrolling on small screens */}
           <textarea
+            disabled={loading}
             placeholder="What do you want to learn today?..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="w-full min-h-[90px] md:min-h-[110px] bg-transparent p-2 text-[15px] text-zinc-800 placeholder-zinc-400 outline-none resize-none"
+            className="w-full min-h-[90px] md:min-h-[110px] bg-transparent p-2 text-[15px] text-zinc-800 placeholder-zinc-400 outline-none resize-none disabled:opacity-50"
           />
 
-          {/* Action Row: Stacks vertically on mobile (flex-col items-stretch gap-3) and snaps back to horizontal on desktop (sm:flex-row sm:items-center sm:justify-between) */}
           <div className="flex flex-col gap-3 pt-2 border-t border-zinc-100 px-1 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
-            {/* Embedded Inline Shadcn Dropdown Trigger */}
+            {/* Embedded Inline Dropdown Selector */}
             <div className="w-full sm:w-[160px]">
-              <Select value={courseType} onValueChange={setCourseType}>
+              <Select
+                disabled={loading}
+                value={courseType}
+                onValueChange={setCourseType}
+              >
                 <SelectTrigger className="h-9 w-full border-none bg-zinc-50 text-xs font-semibold text-zinc-600 focus:ring-0 rounded-lg shadow-none px-3 cursor-pointer">
                   <SelectValue placeholder="Select Layout Mode" />
                 </SelectTrigger>
@@ -92,31 +119,37 @@ export default function LandingPage() {
               </Select>
             </div>
 
-            {/* Micro Action Button: Expands to full-width text button on mobile for easier thumb tracking, turns into a sleek icon box on desktop */}
+            {/* Micro Action Trigger Button */}
             <button
               disabled={loading || !prompt.trim()}
               onClick={handleGenerate}
               className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1a73e8] text-white transition-all hover:bg-[#155cb4] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm sm:h-9 sm:w-9 sm:gap-0"
             >
-              <span className="text-xs font-semibold sm:hidden">
-                Generate Layout
-              </span>
-              <SendHorizontal className="h-4 w-4" />
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <span className="text-xs font-semibold sm:hidden">
+                    Generate Layout
+                  </span>
+                  <SendHorizontal className="h-4 w-4" />
+                </>
+              )}
             </button>
           </div>
         </div>
 
         {/* Layout Suggestion Badge List Container */}
         <div className="mt-7 w-full max-w-2xl px-1">
-          {/* flex-wrap ensures components fall down to a new line gracefully on smaller breakpoints */}
           <div className="flex flex-wrap items-center justify-center gap-2">
             {PROMPT_SUGGESTIONS.map((suggestion) => (
               <button
                 key={suggestion.id}
+                disabled={loading}
                 onClick={() =>
                   handleSuggestionClick(suggestion.prompt, suggestion.type)
                 }
-                className="cursor-pointer text-[11px] md:text-xs rounded-full border border-zinc-200/80 bg-white px-3 py-1.5 font-semibold text-zinc-800 shadow-sm transition-all hover:bg-zinc-50 hover:border-zinc-300 active:scale-95 flex items-center gap-1 whitespace-nowrap"
+                className="cursor-pointer text-[11px] md:text-xs rounded-full border border-zinc-200/80 bg-white px-3 py-1.5 font-semibold text-zinc-800 shadow-sm transition-all hover:bg-zinc-50 hover:border-zinc-300 active:scale-95 flex items-center gap-1 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {suggestion.label}
               </button>
