@@ -5,6 +5,7 @@ import React, { useContext } from "react";
 import Link from "next/link";
 import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
 import { UserDetailContext } from "@/context/UserDetailContext";
+import Image from "next/image";
 
 export default function Header() {
   const { isSignedIn } = useUser();
@@ -19,7 +20,7 @@ export default function Header() {
           className="flex items-center gap-2 text-lg font-bold tracking-tight text-foreground transition-opacity hover:opacity-90 sm:text-xl"
         >
           <div className="flex h-7 w-8 items-center justify-center rounded bg-zinc-100 border text-sm shadow-sm sm:w-9 sm:text-base">
-            🎬
+            <Image src="/logo.png" alt="VidCourse Logo" width={32} height={32} />
           </div>
           <span className="font-sans font-extrabold text-lg sm:text-[22px]">
             Vid<span className="text-[#2563eb]">Course</span>
