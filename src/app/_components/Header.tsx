@@ -3,13 +3,14 @@
 
 import React, { useContext } from "react";
 import Link from "next/link";
-import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
+import { useUser, UserButton } from "@clerk/nextjs";
 import { UserDetailContext } from "@/context/UserDetailContext";
 import Image from "next/image";
 
 export default function Header() {
   const { isSignedIn } = useUser();
   const context = useContext(UserDetailContext);
+console.log("[Header Component] User Detail Context:", context); // Debug log to verify context values
 
   return (
     <header className="w-full bg-background border-b border-zinc-100 px-4 py-4 sm:px-6 md:px-8">
@@ -45,13 +46,7 @@ export default function Header() {
         <div className="flex items-center gap-3 sm:gap-4">
           {isSignedIn ? (
             <div className="flex items-center gap-2 sm:gap-4">
-              {/* Token balance badge adapts its padding and text size smoothly on smaller screens */}
-              <div className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shadow-sm sm:px-3.5 sm:text-xs">
-                <span>Credits:</span>
-                <span className="text-foreground font-bold">
-                  {context?.userDetail?.credits ?? 0}
-                </span>
-              </div>
+             
               <UserButton
                 appearance={{
                   elements: {
@@ -62,12 +57,10 @@ export default function Header() {
               />
             </div>
           ) : (
-            <SignInButton mode="modal">
-              {/* 'px-3 py-1.5 text-xs' on mobile scales up cleanly to 'sm:px-5 sm:py-2 sm:text-sm' */}
-              <button className="cursor-pointer rounded-lg bg-[#1a73e8] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#155cb4] active:scale-[0.98] sm:px-5 sm:py-2 sm:text-sm">
+              
+              <Link href="/sign-in" className="cursor-pointer rounded-lg bg-[#1a73e8] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#155cb4] active:scale-[0.98] sm:px-5 sm:py-2 sm:text-sm">
                 Get Started
-              </button>
-            </SignInButton>
+              </Link>
           )}
         </div>
       </div>

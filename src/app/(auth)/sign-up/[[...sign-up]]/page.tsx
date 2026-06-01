@@ -11,6 +11,7 @@ export default function SignUpPage() {
             card: "bg-[#141414] border border-[#222] shadow-2xl rounded-xl",
           },
         }}
+        fallbackRedirectUrl={"/"}
       />
     </div>
   );
