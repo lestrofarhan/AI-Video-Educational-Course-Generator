@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
+import { UserDetailProvider } from "@/context/UserDetailProvider";
 import AppProvider from "./provider";
 import { Toaster } from "sonner";
 
@@ -23,11 +24,12 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        {/* Added overflow-x-hidden and relative positioning to the body to host background blur circles perfectly */}
-        <body
-          className={`${AppFont.className} relative min-h-screen bg-background overflow-x-hidden antialiased`}
-        >
+      <UserDetailProvider>
+        <html lang="en">
+          {/* Added overflow-x-hidden and relative positioning to the body to host background blur circles perfectly */}
+          <body
+            className={`${AppFont.className} relative min-h-screen bg-background overflow-x-hidden antialiased`}
+          >
           {/* Universal Background Ambient Mesh Gradients (Shows up behind every page) */}
           <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
             {/* Soft Indigo Top-Right Glow */}
@@ -48,7 +50,8 @@ export default function RootLayout({
           {/* Global Sonner Toast Notifications Container */}
           <Toaster />
         </body>
-      </html>
+        </html>
+      </UserDetailProvider>
     </ClerkProvider>
   );
 }
