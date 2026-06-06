@@ -8,38 +8,67 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const SYSTEM_VISUAL_PROMPT = `
-You are an elite Motion Graphics Designer and Frontend Engineer specializing in creating world-class, highly engaging educational video slides for Remotion.
-Your task is to take a course chapter and generate a minimum of 5 to 6 highly distinct, beautiful slides for that specific chapter.
+You are a World-Class Principal Motion Graphics Designer and Elite Frontend Engineer who creates high-retention, cinematic video courses. Your content outperforms custom Premiere Pro and After Effects timelines. Your design system relies on clean premium dark themes, dramatic typography scaling, and high-end fluid layout transitions.
 
-CRITICAL ENGAGEMENT & DURATION RULES:
-1. TARGET DURATION: The total narrative length for this chapter must exceed 2 minutes when spoken. 
-2. For EACH individual slide, write an extensive, deeply descriptive, and comprehensive 'narrationText' paragraph (minimum 150-200 words). Do not summarize. Explain concepts thoroughly with smooth, human-like verbal transitions.
-3. DO NOT just dump text sentences on a plain background. Slides must look professional, modern, and cinematic (Quiet Luxury aesthetic).
-4. Use a sophisticated color palette: Deep dark mode background (#0a0a0c), dark charcoal cards (#121214), with striking accents (e.g., electric blue, vivid purple, or minimalist emerald text/borders).
-5. Layout Variety is required across the slide array: 
-   - Slide 1: High-impact Title Slide (bold typography, minimalist container card).
-   - Slide 2: Modern Two-Column Layout (Left side: a clean code snippet or conceptual visual container; Right side: broken down reveal bullet points).
-   - Slide 3: Status Grid or Process flow (3 separate columns or cards lined up next to each other horizontally).
-   - Slide 4 & 5: Complex technical deep-dives or comparison matrices.
-6. Every piece of narrative text meant to animate into view sequentially MUST be wrapped in an HTML element containing a 'reveal' class and a distinct 'data-reveal' token value (e.g., "r1", "r2", "r3").
-7. The 'htmlContent' must be fully standalone 1280x720 video frames using the Tailwind CSS CDN script. Do not include raw markdown outside the string.
+You are generating production-ready HTML canvas layers for a 1280x720 video layout rendered via Remotion.
 
-You must return your response strictly as a JSON object matching this TypeScript structure:
+---
+### 1. KINETIC PRESENTATION & VIEWPALETTE RULES (CRITICAL)
+* **Canvas Framework:** Every slide MUST be completely enclosed inside a full-bleed viewport wrapper centered on both axes: \`<div class="w-[1280px] h-[720px] bg-[#050508] text-white flex flex-col items-center justify-center p-16 relative overflow-hidden font-sans select-none">\`. 
+* **Color Spec:** Base background is obsidian (\`#050508\`). Structural cards must use deep charcoal glassmorphism (\`bg-[#0c0c10]/70 backdrop-blur-xl border border-zinc-800/40\`). Accents must use clean glowing variants: Electric Cyan (\`#06b6d4\`), Hyper-Violet (\`#8b5cf6\`), and Premium Emerald (\`#10b981\`).
+* **Typography Scaling:** Headings must be massive, authoritative, and tight (\`text-5xl lg:text-6xl font-black tracking-tighter leading-none\`). Text blocks or bullet titles should use modern high-contrast styling (\`tracking-wide uppercase text-xs font-bold text-zinc-400\`).
+
+---
+### 2. TIMELINE ANIMATIONS & MOTION CURVES
+* Every layout element must gracefully reveal itself on screen. Statically placed text blocks are completely forbidden.
+* Map element groups directly to the sequence identifiers provided in your 'revelData' parameter (e.g., ["r1", "r2", "r3"]) by injecting progressive, arbitrary animation delay styles into the markup:
+  - Element 1 (\`r1\`): \`class="opacity-0 [animation-name:cinematicReveal] duration-700 [animation-fill-mode:forwards] ease-[cubic-bezier(0.16,1,0.3,1)]"\`
+  - Element 2 (\`r2\`): \`class="opacity-0 [animation-name:cinematicReveal] duration-700 [animation-fill-mode:forwards] ease-[cubic-bezier(0.16,1,0.3,1)] [animation-delay:1000ms]"\`
+  - Element 3 (\`r3\`): \`class="opacity-0 [animation-name:cinematicReveal] duration-700 [animation-fill-mode:forwards] ease-[cubic-bezier(0.16,1,0.3,1)] [animation-delay:2000ms]"\`
+* Define these exact motion matrices cleanly within a \`<style>\` tag inside your HTML payload string:
+  \`\`\`css
+  @keyframes cinematicReveal {
+    from { opacity: 0; transform: translateY(32px) scale(0.97); filter: blur(8px); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @keyframes gradientPan {
+    0% { bg-position: 0% 50%; }
+    50% { bg-position: 100% 50%; }
+    100% { bg-position: 0% 50%; }
+  }
+  \`\`\`
+
+---
+### 3. COMPOSITION SCHEMAS (MANDATORY VARIETY)
+Do not repeat layouts. Build a varying visual progression across your 5 to 6 slide set:
+1. **Slide 1: High-Impact Title Blueprint:** Dominated by a massive centered title with a split-gradient text layout (\`bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent\`), a clean horizontal hairline decorative divider, and a floating metadata label tracking the current module topic scope.
+2. **Slide 2: System Architecture Split:** A clean 2-column layout. Left column holds a highly stylized code-snippet viewport window or flowchart entity card containing structured content. Right column holds two sequential deep-dive reveal cards (\`r1\`, \`r2\`) offset vertically with clean padding layouts.
+3. **Slide 3: Horizontal Timeline Chain:** 3 distinct cards or workflow nodes arranged edge-to-edge horizontally across the central canvas belt. Each card animates into view step-by-step using ordered timeline offsets (\`r1\` at 0ms, \`r2\` at 1000ms, \`r3\` at 2000ms).
+4. **Slide 4: The Massive Focal Callout:** Built around a giant central terminal graphic element or hyper-bold core phrase metric (e.g., "99.9% Core Accessibility Score") designed to snap visual focus directly to the core concept.
+5. **Slide 5 & 6: Production Vs Misconception Grid:** A highly sophisticated tabular comparison grid matrix separating standard myths from engineering realities, utilizing contrasting accent colors (vibrant red-orange vs sleek cyber emerald).
+
+---
+### 4. PRESENTATION VOICE SCRIPT
+* The 'narrationText' attribute must contain an exhaustive, deeply educational verbal script (minimum 150-200 words per slide). Avoid quick summaries or bullet-point reading templates. Write exactly how a senior technical architect presents content live on stage—incorporating detailed analogies and smooth transitional phrase frameworks.
+
+---
+### RESPOND STRICTLY WITH VALID JSON
+Ensure the returned string is perfectly parsed JSON conforming to this schema blueprint:
 {
   "slides": [
     {
       "slideIndex": number,
-      "title": "String (Impactful, short)",
-      "subtitle": "String (Optional context line)",
-      "narrationText": "String (The exhaustive voiceover paragraph corresponding to this slide's visuals, min 150 words)",
+      "title": "String (Impactful graphic headline)",
+      "subtitle": "String (Uppercase module context tag)",
+      "narrationText": "String (Exhaustive, highly engaging voiceover paragraph explaining the concepts shown in this slide. Minimum 150-200 words.)",
       "revelData": ["r1", "r2", "r3"],
-      "htmlContent": "Entire self-contained valid 1280x720 HTML string including tailwind script tag"
+      "htmlContent": "String (Complete valid 1280x720 responsive layout string containing the standard Tailwind CDN script link, custom keyframe animation blocks, and granular delay mappings)."
     }
   ]
 }
 `;
 
-function chunkText(text: string, maxLength = 150): string[] {
+function chunkText(text: string, maxLength = 140): string[] {
   const words = text.replace(/\n/g, " ").split(" ");
   const chunks: string[] = [];
   let currentChunk = "";
@@ -58,35 +87,37 @@ function chunkText(text: string, maxLength = 150): string[] {
 
 async function generateAudioBuffer(text: string): Promise<Buffer> {
   const textChunks = chunkText(text);
+  const chunkBuffers: Buffer[] = [];
 
-  const audioBufferPromises = textChunks.map(async (chunk) => {
+  // Sequential generation completely decouples buffer context streams to bypass rate-limiting overlap errors
+  for (const chunk of textChunks) {
     const encodedText = encodeURIComponent(chunk);
     const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodedText}`;
 
     const res = await fetch(googleTtsUrl, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       },
     });
 
-    if (!res.ok) throw new Error(`TTS Chunk fetch failed: ${res.status}`);
+    if (!res.ok)
+      throw new Error(
+        `Google Audio Pipeline returned response code: ${res.status}`,
+      );
     const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  });
+    chunkBuffers.push(Buffer.from(arrayBuffer));
+  }
 
-  const chunkBuffers = await Promise.all(audioBufferPromises);
   return Buffer.concat(chunkBuffers);
 }
 
-// Whisper Transcription Engine tracking exact sub-word timestamps
 async function generateWhisperCaptions(audioBuffer: Buffer) {
   try {
     const audioFile = await toFile(audioBuffer, "narration.mp3", {
       type: "audio/mp3",
     });
 
-    // FIXED: Explicitly asking Groq for granular word level tracking arrays
     const transcription = await groq.audio.transcriptions.create({
       file: audioFile,
       model: "whisper-large-v3",
@@ -109,9 +140,12 @@ async function generateWhisperCaptions(audioBuffer: Buffer) {
       words: [{ start: 0, end: 5, word: transcription.text || "" }],
     };
   } catch (err) {
-    console.error("Whisper alignment sequence caught an exception:", err);
+    console.error(
+      "Whisper caption compiler encountered an exception layout:",
+      err,
+    );
     return {
-      words: [{ start: 0, end: 1, word: "Captions Unavailable" }],
+      words: [{ start: 0, end: 1, word: "Captions Unresolved" }],
     };
   }
 }
@@ -123,11 +157,11 @@ async function attemptLLMGeneration(
   attempt: number,
 ): Promise<any> {
   const userPromptText = `
-    Course Name: ${courseName}
-    Chapter Title: ${chapterTitle}
-    Core Topics to cover comprehensively: ${JSON.stringify(subContent)}
+    Course Scope: ${courseName}
+    Target Module Topic: ${chapterTitle}
+    Curriculum Focus Parameters: ${JSON.stringify(subContent)}
     
-    Generate at least 5 to 6 sequential, highly detailed premium video slides following this topic scope. Ensure massive narration length. Return valid JSON only.
+    Synthesize exactly 5 to 6 completely unique cinematic slides matching our required multi-sentence presentation scripts. Return valid, parseable JSON only.
   `;
 
   if (attempt <= 2) {
@@ -138,12 +172,15 @@ async function attemptLLMGeneration(
       config: {
         systemInstruction: SYSTEM_VISUAL_PROMPT,
         responseMimeType: "application/json",
-        temperature: 0.3,
+        temperature: 0.2,
       },
     });
 
     const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!responseText) throw new Error("Gemini returned an empty body frame.");
+    if (!responseText)
+      throw new Error(
+        "Generative layer returned an empty output layout frame.",
+      );
     return JSON.parse(responseText);
   } else {
     const modelName =
@@ -155,12 +192,14 @@ async function attemptLLMGeneration(
       ],
       model: modelName,
       response_format: { type: "json_object" },
-      temperature: 0.2,
+      temperature: 0.15,
     });
 
     const responseText = chatCompletion.choices[0]?.message?.content;
     if (!responseText)
-      throw new Error("Groq engine returned an empty response string.");
+      throw new Error(
+        "Groq API transaction layout block returned an unreadable response string.",
+      );
     return JSON.parse(responseText);
   }
 }
@@ -172,7 +211,7 @@ export async function POST(req: Request) {
 
     if (!courseId || !chapter || !chapter.chapterId) {
       return NextResponse.json(
-        { success: false, message: "Missing required parameters." },
+        { success: false, message: "Missing required tracking properties." },
         { status: 400 },
       );
     }
@@ -180,9 +219,10 @@ export async function POST(req: Request) {
     let generatedData = null;
     let errorsLog: string[] = [];
     const MAX_ATTEMPTS = 4;
-
     const targetChapterTitle =
-      chapter.chapterTitle || chapter.title || "Untitled Segment";
+      chapter.chapterTitle ||
+      chapter.title ||
+      "Untitled Cinematic Component Node";
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
@@ -195,7 +235,7 @@ export async function POST(req: Request) {
         if (generatedData && Array.isArray(generatedData.slides)) break;
       } catch (err: any) {
         errorsLog.push(
-          `Attempt ${attempt} Failed: ${err?.message || "Unknown error"}`,
+          `Synthesis System Attempt [${attempt}] Faulted: ${err?.message || "JSON parsing discrepancy"}`,
         );
       }
     }
@@ -204,78 +244,83 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Model Busy Exception: Generation microservices exhausted.",
+          message:
+            "All secondary generative engine fallbacks failed to process content models cleanly.",
           details: errorsLog,
         },
         { status: 503 },
       );
     }
 
-    const finalizedSlidesPayload = await Promise.all(
-      generatedData.slides.map(async (slide: any, index: number) => {
-        const formattedSlideId = `${chapter.chapterId}-${String(index + 1).padStart(2, "0")}`;
+    const finalizedSlidesPayload = [];
 
-        let audioDataUri = null;
-        let structuredCaptions = { words: [] };
+    // Processing each slide sequentially isolates each specific asset pipeline configuration
+    for (let index = 0; index < generatedData.slides.length; index++) {
+      const slide = generatedData.slides[index];
+      const formattedSlideId = `${chapter.chapterId}-${String(index + 1).padStart(2, "0")}`;
 
-        try {
-          const compilationAudioBuffer = await generateAudioBuffer(
-            slide.narrationText,
-          );
+      let audioDataUri = null;
+      let structuredCaptions = { words: [] };
 
-          structuredCaptions = await generateWhisperCaptions(
-            compilationAudioBuffer,
-          );
+      try {
+        const compilationAudioBuffer = await generateAudioBuffer(
+          slide.narrationText,
+        );
+        structuredCaptions = await generateWhisperCaptions(
+          compilationAudioBuffer,
+        );
+        audioDataUri = `data:audio/mp3;base64,${compilationAudioBuffer.toString("base64")}`;
+      } catch (audioPipelineError) {
+        console.error(
+          `Isolated audio execution break at slide index [${index + 1}]:`,
+          audioPipelineError,
+        );
+      }
 
-          audioDataUri = `data:audio/mp3;base64,${compilationAudioBuffer.toString("base64")}`;
-        } catch (audioPipelineError) {
-          console.error(
-            `Audio/Caption pipeline execution failed for slide ${index + 1}:`,
-            audioPipelineError,
-          );
-        }
+      const dbRecord = {
+        courseId: String(courseId),
+        chapterId: String(chapter.chapterId),
+        slideId: formattedSlideId,
+        slideIndex: index + 1,
+        title: slide.title,
+        subtitle: slide.subtitle || null,
+        audioFileName: `${formattedSlideId}.mp3`,
+        audioFileUrl: audioDataUri,
+        narration: { fullText: slide.narrationText },
+        htmlContent: slide.htmlContent,
+        revelData: slide.revelData || [],
+        captions: structuredCaptions,
+      };
 
-        const dbRecord = {
-          courseId: String(courseId),
-          chapterId: String(chapter.chapterId),
-          slideId: formattedSlideId,
-          slideIndex: index + 1,
-          title: slide.title,
-          subtitle: slide.subtitle || null,
-          audioFileName: `${formattedSlideId}.mp3`,
-          audioFileUrl: audioDataUri,
-          narration: { fullText: slide.narrationText },
-          htmlContent: slide.htmlContent,
-          revelData: slide.revelData || [],
-          captions: structuredCaptions,
-        };
+      await db
+        .insert(chapterContentSlides)
+        .values(dbRecord)
+        .onConflictDoUpdate({
+          target: chapterContentSlides.slideId,
+          set: dbRecord,
+        });
 
-        await db
-          .insert(chapterContentSlides)
-          .values(dbRecord)
-          .onConflictDoUpdate({
-            target: chapterContentSlides.slideId,
-            set: dbRecord,
-          });
-
-        return dbRecord;
-      }),
-    );
+      finalizedSlidesPayload.push(dbRecord);
+    }
 
     return NextResponse.json({
       success: true,
       message:
-        "Exhaustive slides generated, processed with Whisper, and saved directly to Neon DB.",
+        "Exhaustive cinematic video slides compiled and cataloged cleanly inside Neon DB database maps.",
       chapterId: chapter.chapterId,
       totalSlides: finalizedSlidesPayload.length,
       slides: finalizedSlidesPayload,
     });
   } catch (error: any) {
-    console.error("Critical failure during transaction handling:", error);
+    console.error(
+      "Critical routing transaction engine execution break:",
+      error,
+    );
     return NextResponse.json(
       {
         success: false,
-        message: error?.message || "Internal server route error.",
+        message:
+          error?.message || "Internal transaction routing breakdown exception.",
       },
       { status: 500 },
     );
