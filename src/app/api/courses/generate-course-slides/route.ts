@@ -126,9 +126,15 @@ async function generateWhisperCaptions(audioBuffer: Buffer) {
       temperature: 0.0,
     });
 
-    if (transcription.words && Array.isArray(transcription.words)) {
+
+   
+
+    // Typecast to 'any' or 'OpenAI.Audio.TranscriptionVerbose' to clear the TS error
+    const transcriptionData = transcription as any;
+
+    if (transcriptionData.words && Array.isArray(transcriptionData.words)) {
       return {
-        words: transcription.words.map((w: any) => ({
+        words: transcriptionData.words.map((w: any) => ({
           word: w.word.trim(),
           start: w.start,
           end: w.end,

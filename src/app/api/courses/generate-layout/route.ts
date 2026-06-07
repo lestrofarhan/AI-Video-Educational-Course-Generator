@@ -370,7 +370,9 @@ export async function POST(request: NextRequest) {
             "Unable to generate a valid course layout after multiple attempts.",
           details:
             finalResult.error ||
-            finalResult.previousError ||
+            ("previousError" in finalResult
+              ? finalResult.previousError
+              : undefined) ||
             "Gemini and Groq both returned unusable results.",
         },
         { status: 502 },
