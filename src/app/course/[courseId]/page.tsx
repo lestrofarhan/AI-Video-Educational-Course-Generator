@@ -1,434 +1,411 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { Player } from "@remotion/player";
-import { CourseComposition } from "@/app/_components/CourseComposition";
+import Header from "@/app/_components/Header";
 import {
-  Loader2,
-  AlertCircle,
-  Play,
-  ArrowLeft,
-  Video,
-  BookOpen,
-  HelpCircle,
-  Film,
+  AlertTriangle,
   CheckCircle2,
+  Loader2,
+  Play,
+  Video,
+  Clock3,
+  Layers3,
 } from "lucide-react";
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RemotionVideoEngine } from "@/app/_components/RemotionPlayer";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
 
-interface CaptionWord {
-  text: string;
-  start: number;
-  end: number;
-}
+export default function CourseViewerPage() {
+  const { courseId } = useParams();
+  const targetId = Array.isArray(courseId) ? courseId[0] : courseId;
 
-interface Chapter {
-  chapterId: string;
-  title: string;
-  summary: string;
-  subContent: string[];
-  isRendered: boolean;
-  videoUrl: string | null;
-  htmlContent?: string;
-  subtitle?: string;
-  captions?: CaptionWord[];
-  durationSeconds?: number;
-}
+  // Pipeline Processing & Orchestration States
+  const [loading, setLoading] = useState(true);
+  const [pipelineStatus, setPipelineStatus] = useState<string>("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-export default function CourseWorkspacePage({ params }: { params: Promise<{ courseId: string }> }) {
-  const resolvedParams = use(params);
-  const courseId = resolvedParams.courseId;
-  
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  // Consolidated Database Payloads
+  const [courseRecord, setCourseRecord] = useState<any>(null);
+  const [chaptersWithSlides, setChaptersWithSlides] = useState<any[]>([]);
+  const [activeChapter, setActiveChapter] = useState<any>(null);
 
-  const queryPrompt = searchParams.get("prompt");
-  const queryLevel = searchParams.get("level");
+  // Remotion Dynamic Duration Calculator state
+  const [computedTotalFrames, setComputedTotalFrames] = useState<number>(
+    30 * 120,
+  ); // Default placeholder 2 mins
 
-  const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
-  const [pipelineAlert, setPipelineAlert] = useState("");
-  const [courseMeta, setCourseMeta] = useState<any>(null);
-  const [chaptersList, setChaptersList] = useState<Chapter[]>([]);
-  const [activeProcessingChapter, setActiveProcessingChapter] = useState<string | null>(null);
-  const [activeChapterData, setActiveChapterData] = useState<Chapter | null>(null);
+  const fetchCourseDataFromDb = async () => {
+    const res = await fetch("/api/courses/course", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId: targetId }),
+    });
+    return await res.json();
+  };
 
-  useEffect(() => {
-    async function loadWorkspace() {
-      try {
-        // Safe query string separation to prevent route matching collisions
-        const queryParams = new URLSearchParams({ courseId: courseId });
-        const response = await fetch(`/api/courses/get-details?${queryParams.toString()}`);
-        const data = await response.json();
-
-        if (response.ok && data.exists) {
-          setCourseMeta(data.course);
-
-          const processedChapters = (data.course.courseLayout?.chapters || []).map((chap: any) => {
-            const matchingSlides = data.slides?.filter((s: any) => s.chapterId === chap.chapterId) || [];
-            const primarySlide = matchingSlides[0]; 
-
-            let calculatedDuration = 6.0;
-            if (primarySlide?.captions && Array.isArray(primarySlide.captions) && primarySlide.captions.length > 0) {
-              calculatedDuration = primarySlide.captions[primarySlide.captions.length - 1].end + 0.8;
-            }
-
-            return {
-              ...chap,
-              isRendered: !!primarySlide,
-              videoUrl: primarySlide ? primarySlide.audioFileUrl : null,
-              htmlContent: primarySlide ? primarySlide.htmlContent : "",
-              subtitle: primarySlide ? primarySlide.subtitle : "Automated Architecture Engine",
-              captions: primarySlide ? primarySlide.captions : [],
-              durationSeconds: calculatedDuration,
-            };
-          });
-
-          setChaptersList(processedChapters);
-
-          const firstRendered = processedChapters.find((c: any) => c.isRendered);
-          if (firstRendered) setActiveChapterData(firstRendered);
-
-          setStatus("ready");
-          return;
-        }
-
-        if (queryPrompt) {
-          const initResponse = await fetch("/api/courses/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              courseName: "Generating Structural Layout Blueprint...",
-              userInput: queryPrompt,
-              level: queryLevel,
-            }),
-          });
-
-          const initData = await initResponse.json();
-          if (!initResponse.ok) {
-            setPipelineAlert(initData.message || "Failed to initialize standard blueprint layout components.");
-            setStatus("failed");
-            return;
-          }
-
-          router.replace(`/course/${initData.courseId}`);
-        } else {
-          setPipelineAlert("The specified course metadata key reference could not be verified inside our records.");
-          setStatus("failed");
-        }
-      } catch (err: any) {
-        setStatus("failed");
-        setPipelineAlert("An unhandled exception occurred during canvas synchronization routines.");
-      }
-    }
-
-    if (courseId) loadWorkspace();
-  }, [courseId, queryPrompt, queryLevel, router]);
-
-  const compileChapterAssets = async (chapterId: string, currentChapterObj: Chapter) => {
-    setActiveProcessingChapter(chapterId);
-    setPipelineAlert(""); 
-    
-    // Fallback logic to protect the pipeline if document states are contextually blank
-    const fallBackCourseName = courseMeta?.courseName || document.querySelector("h1")?.innerText || "Semantic HTML5: Structure & Accessibility";
+  const handlePipelineSequence = async () => {
+    setLoading(true);
+    setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/generate-video-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId: courseId,
-          courseName: fallBackCourseName,
-          chapterTitle: currentChapterObj.title,
-          chapterSlug: chapterId,
-          subContent: currentChapterObj.subContent || ["Introduction Overview Matrix"],
-        }),
-      });
+      setPipelineStatus("Checking asset catalog maps inside Neon DB...");
+      const checkData = await fetchCourseDataFromDb();
 
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || resData.error || "Upstream production generation failed.");
+      const hasLayout = checkData.success && checkData.exists;
+      const hasSlidesCompiled =
+        hasLayout &&
+        Array.isArray(checkData.chaptersWithSlides) &&
+        checkData.chaptersWithSlides.length > 0 &&
+        checkData.chaptersWithSlides.some(
+          (ch: any) => ch.slides && ch.slides.length > 0,
+        );
+
+      if (hasLayout && hasSlidesCompiled) {
+        setCourseRecord(checkData.course);
+        setChaptersWithSlides(checkData.chaptersWithSlides || []);
+
+        if (checkData.chaptersWithSlides?.[0]) {
+          handleChapterSelect(checkData.chaptersWithSlides[0]);
+        }
+        setLoading(false);
+        return;
       }
 
-      const targetedSlide = Array.isArray(resData.slides) ? resData.slides[0] : null;
+      let currentCourseName = checkData.course?.courseName;
+      let rawChaptersArray = checkData.course?.courseLayout?.chapters || [];
 
-      if (!targetedSlide) {
-        throw new Error("Pipeline successfully generated resources, but could not read the returning slide array.");
+      if (!hasLayout) {
+        setPipelineStatus(
+          "Course mapping missing. Initializing AI structural blueprints via Gemini...",
+        );
+        const layoutRes = await fetch("/api/courses/generate-layout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: targetId,
+            prompt: "Semantic HTML5: Structure & Accessibility",
+            type: "full",
+          }),
+        });
+
+        const layoutData = await layoutRes.json();
+        if (!layoutRes.ok || !layoutData.success) {
+          throw new Error(
+            layoutData.message ||
+              "Failed during course architecture blueprint assembly.",
+          );
+        }
+        currentCourseName =
+          layoutData.courseName || "Semantic HTML5 Masterclass";
+        rawChaptersArray = layoutData.courseLayout?.chapters || [];
+      } else {
+        setPipelineStatus(
+          "Layout structure verified. Initiating missing slide rendering sequences...",
+        );
       }
 
-      const verifiedAudioPath = targetedSlide.audioFileUrl;
-      const verifiedHtml = targetedSlide.htmlContent || "<div>No HTML Content Layer Found</div>";
-      const verifiedCaptions = targetedSlide.captions || [];
-      
-      let calculatedDuration = 6.0;
-      if (verifiedCaptions.length > 0) {
-        calculatedDuration = verifiedCaptions[verifiedCaptions.length - 1].end + 0.8;
+      for (let i = 0; i < rawChaptersArray.length; i++) {
+        const chapter = rawChaptersArray[i];
+        const targetChapterId = chapter.chapterId || `ch-${i + 1}`;
+        const normalizationPayload = {
+          ...chapter,
+          chapterId: targetChapterId,
+        };
+
+        setPipelineStatus(
+          `Processing Chapter [${i + 1}/${rawChaptersArray.length}]: ${chapter.title || chapter.chapterTitle}...`,
+        );
+
+        const slideRes = await fetch("/api/courses/generate-course-slides", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: targetId,
+            courseName: currentCourseName || "Semantic HTML5 Masterclass",
+            chapter: normalizationPayload,
+          }),
+        });
+
+        if (!slideRes.ok) {
+          const slideError = await slideRes.json();
+          throw new Error(
+            `[${chapter.title || chapter.chapterTitle}] Processing Timeout: ${slideError.message || "Microservice exhausted"}`,
+          );
+        }
       }
 
-      const updatedFields = {
-        isRendered: true,
-        videoUrl: verifiedAudioPath,
-        htmlContent: verifiedHtml,
-        subtitle: targetedSlide.subtitle || "Production Generation Node Verified",
-        captions: verifiedCaptions,
-        durationSeconds: calculatedDuration,
-      };
-
-      setChaptersList((prev) =>
-        prev.map((c) => (c.chapterId === chapterId ? { ...c, ...updatedFields } : c))
+      setPipelineStatus(
+        "Consolidating database structures and deploying Whisper timelines...",
       );
-
-      setActiveChapterData({
-        ...currentChapterObj,
-        ...updatedFields,
-      });
-
+      const secondaryCheck = await fetchCourseDataFromDb();
+      if (secondaryCheck.success && secondaryCheck.exists) {
+        setCourseRecord(secondaryCheck.course);
+        setChaptersWithSlides(secondaryCheck.chaptersWithSlides || []);
+        if (secondaryCheck.chaptersWithSlides?.[0]) {
+          handleChapterSelect(secondaryCheck.chaptersWithSlides[0]);
+        }
+      }
     } catch (err: any) {
-      setPipelineAlert(`Pipeline Exception Triggered: ${err.message}`);
+      console.error("Pipeline breakdown sequence executed:", err);
+      setErrorMessage(
+        err?.message || "An unexpected production engine exception happened.",
+      );
     } finally {
-      setActiveProcessingChapter(null);
+      setLoading(false);
     }
   };
 
-  if (status === "loading") {
+  const handleChapterSelect = (chapter: any) => {
+    setActiveChapter(chapter);
+
+    const FPS = 30;
+    let runningFramesCounter = 0;
+
+    const targetSlides = chapter.slides || [];
+    targetSlides.forEach((slide: any) => {
+      const words = slide.captions?.words || [];
+      const endMarkerSeconds =
+        words.length > 0 ? words[words.length - 1].end : 5;
+      runningFramesCounter += Math.ceil((endMarkerSeconds + 0.5) * FPS);
+    });
+
+    setComputedTotalFrames(runningFramesCounter || FPS * 10);
+  };
+
+  useEffect(() => {
+    if (targetId) {
+      handlePipelineSequence();
+    }
+  }, [targetId]);
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center space-y-3">
-        <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest font-mono">
-          Loading Studio Core Workspace Canvas...
+      <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-6 text-zinc-900">
+        <Loader2 className="w-9 h-9 animate-spin text-[#2563eb] mb-4" />
+        <p className="text-xs font-semibold tracking-wide text-zinc-500 animate-pulse">
+          {pipelineStatus}
         </p>
       </div>
     );
   }
 
-  if (status === "failed") {
-    return (
-      <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-6">
-        <Card className="w-full max-w-md border-slate-200 shadow-xl bg-white rounded-2xl">
-          <CardHeader className="space-y-1">
-            <div className="flex items-center gap-2 text-rose-600">
-              <AlertCircle className="w-5 h-5" />
-              <CardTitle className="text-lg font-bold tracking-tight">Workspace Error Exception</CardTitle>
-            </div>
-            <CardDescription className="text-xs leading-relaxed text-slate-500">
-              {pipelineAlert}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-end border-t border-slate-100 pt-4 bg-slate-50/50 rounded-b-2xl">
-            <Button variant="outline" size="sm" onClick={() => router.push("/")} className="text-xs font-semibold">
-              <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#fafafa] text-slate-900 pb-20 antialiased font-sans select-none">
-      {/* Top Navigation */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/")}
-            className="text-slate-500 hover:text-slate-900 text-xs font-bold gap-1.5 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Return to Studio
-          </Button>
-          <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/50">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-700 font-extrabold">
-              Remotion Studio Thread Connected
-            </span>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans antialiased selection:bg-blue-500/10">
+      <Header />
+
+      {/* Synchronized Clean Header Area */}
+      <header className="border-b border-zinc-200 bg-white py-12 px-4 md:px-8 lg:px-16 text-left">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="lg:col-span-7 space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 shadow-sm">
+              <Layers3 className="h-3.5 w-3.5 text-[#2563eb]" />
+              Course Preview
+            </div>
+            <h1 className="text-3xl lg:text-4xl font-extrabold text-zinc-900 tracking-tight leading-tight">
+              {courseRecord?.courseName ||
+                "Semantic HTML5: Structure & Accessibility"}
+            </h1>
+            <p className="text-zinc-500 text-sm md:text-[15px] leading-relaxed max-w-xl">
+              {courseRecord?.userInput ||
+                "A beginner-friendly introduction covering components, JSX, props, and state."}
+            </p>
+            <div className="flex items-center gap-4 pt-1 text-xs font-semibold text-zinc-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Beginner
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Video className="w-3.5 h-3.5 text-zinc-400" />{" "}
+                {chaptersWithSlides.length} Video Chapters Live
+              </span>
+            </div>
+          </div>
+
+          {/* Video Preview Canvas with crisp border wrapper */}
+          <div className="lg:col-span-5 w-full aspect-video rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-950 shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all">
+            {activeChapter && activeChapter.slides?.length > 0 ? (
+              <Player
+                key={activeChapter.chapterId}
+                component={RemotionVideoEngine}
+                inputProps={{ slides: activeChapter.slides }}
+                durationInFrames={computedTotalFrames}
+                fps={30}
+                compositionWidth={1280}
+                compositionHeight={720}
+                style={{ width: "100%", height: "100%" }}
+                controls
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-zinc-400 text-xs gap-2 p-4 bg-zinc-900">
+                <AlertTriangle className="w-5 h-5 text-zinc-500" />
+                <span>No cinematic content rendered for this block target</span>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-6 pt-8 space-y-6">
-        {pipelineAlert && (
-          <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-900 rounded-xl shadow-sm">
-            <AlertCircle className="w-4 h-4 text-rose-600" />
-            <AlertTitle className="text-xs font-extrabold uppercase tracking-wider text-rose-800">
-              Active Warning Block
-            </AlertTitle>
-            <AlertDescription className="text-xs font-medium mt-0.5 font-mono">
-              {pipelineAlert}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="space-y-1.5">
-          <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[10px] uppercase font-bold tracking-wider rounded-full px-2.5 py-0.5">
-            Interactive Video Studio Course
-          </Badge>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-            {courseMeta?.courseName || "Semantic HTML5: Structure & Accessibility"}
-          </h1>
+      {/* Production pipeline error component */}
+      {errorMessage && (
+        <div className="max-w-5xl mx-auto mt-6 px-4">
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 px-5 py-4 rounded-xl flex items-start gap-3 shadow-sm animate-fade-in text-left">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+            <div>
+              <span className="font-bold text-xs tracking-wider uppercase block text-rose-600">
+                Pipeline Alert Status
+              </span>
+              <p className="text-sm font-medium mt-1 text-rose-700">
+                {errorMessage}
+              </p>
+            </div>
+          </div>
         </div>
+      )}
 
-        <Separator className="bg-slate-200/60 my-2" />
+      {/* Dashboard Grid Modules */}
+      <main className="max-w-5xl mx-auto px-4 py-12 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Tracking Engine Module */}
+        <section className="lg:col-span-8 space-y-5 text-left">
+          <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
+            <h2 className="text-lg font-bold tracking-tight text-zinc-900">
+              Chapters and Short Preview
+            </h2>
+            <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-400 font-bold">
+              Active Processing Matrix
+            </span>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left panel layout */}
-          <div className="lg:col-span-7 space-y-4">
-            <h3 className="text-xs font-extrabold tracking-widest text-slate-400 uppercase flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-slate-400" /> Curriculum Blueprint Modules
-            </h3>
+          <div className="space-y-4">
+            {chaptersWithSlides.map((chapter: any, index: number) => {
+              const isSelected = activeChapter?.chapterId === chapter.chapterId;
+              return (
+                <div
+                  key={chapter.chapterId}
+                  className={`transition-all duration-300 rounded-2xl border p-5 bg-white ${
+                    isSelected
+                      ? "border-[#2563eb] shadow-[0_8px_30px_rgba(37,99,235,0.04)]"
+                      : "border-zinc-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:border-zinc-300"
+                  }`}
+                >
+                  <div className="flex flex-col md:flex-row gap-5 items-start justify-between">
+                    <div className="space-y-3 flex-1">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isSelected
+                              ? "bg-[#2563eb] text-white"
+                              : "bg-zinc-100 text-zinc-500"
+                          }`}
+                        >
+                          {index + 1}
+                        </span>
+                        <h3 className="text-[15px] font-bold text-zinc-900 tracking-tight">
+                          {chapter.title || chapter.chapterTitle}
+                        </h3>
+                      </div>
 
-            <div className="space-y-3">
-              {chaptersList.map((chapter, index) => {
-                const isSelectedChapter = activeChapterData?.chapterId === chapter.chapterId;
-                return (
-                  <Card
-                    key={chapter.chapterId}
-                    className={`transition-all bg-white border-slate-200 rounded-xl overflow-hidden shadow-sm ${
-                      chapter.isRendered 
-                        ? "border-indigo-200 bg-gradient-to-r from-white to-indigo-50/[0.12]" 
-                        : "hover:border-slate-300"
-                    } ${isSelectedChapter ? "ring-2 ring-indigo-500 border-indigo-300 shadow-md" : ""}`}
-                  >
-                    <div className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <div className="space-y-1 max-w-xl">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-mono font-bold ${
-                            chapter.isRendered ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500 border border-slate-200"
-                          }`}>
-                            0{index + 1}
-                          </span>
-                          <h4 className="text-sm font-bold text-slate-800 tracking-tight">
-                            {chapter.title}
-                          </h4>
-                        </div>
-                        <p className="text-xs text-slate-500 pl-7 leading-relaxed">
+                      {chapter.summary && (
+                        <p className="text-xs text-zinc-500 leading-relaxed pl-9 italic font-medium">
                           {chapter.summary}
                         </p>
-                        
-                        {chapter.subContent && (
-                          <ul className="text-[11px] text-slate-400 font-semibold pl-7 pt-1.5 space-y-0.5 list-disc list-inside">
-                            {chapter.subContent.map((subText, sIdx) => (
-                              <li key={sIdx}>{subText}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
+                      )}
 
-                      <div className="w-full sm:w-auto shrink-0 pl-7 sm:pl-0">
-                        {chapter.isRendered ? (
-                          <Button
-                            onClick={() => setActiveChapterData(chapter)}
-                            variant={isSelectedChapter ? "default" : "outline"}
-                            size="sm"
-                            className={`text-xs font-bold h-8 px-3.5 rounded-lg shadow-sm ${
-                              isSelectedChapter 
-                                ? "bg-indigo-600 text-white hover:bg-indigo-700" 
-                                : "text-slate-600 bg-white border-slate-300 hover:bg-slate-50"
-                            }`}
-                          >
-                            <Play className="w-3 h-3 mr-1.5 fill-current" /> Preview Track
-                          </Button>
-                        ) : (
-                          <Button
-                            disabled={activeProcessingChapter === chapter.chapterId}
-                            onClick={() => compileChapterAssets(chapter.chapterId, chapter)}
-                            variant="outline"
-                            size="sm"
-                            className="text-xs font-bold border-dashed border-slate-300 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50/30 h-8 px-3.5 rounded-lg transition-all"
-                          >
-                            {activeProcessingChapter === chapter.chapterId ? (
-                              <>
-                                <Loader2 className="w-3 h-3 text-indigo-600 animate-spin mr-1.5" />
-                                <span className="text-slate-400 font-bold animate-pulse">Compiling Track...</span>
-                              </>
-                            ) : (
-                              <>Synthesize Assets</>
-                            )}
-                          </Button>
-                        )}
+                      <ul className="space-y-1.5 pl-13 text-xs text-zinc-500 font-medium list-disc marker:text-zinc-300">
+                        {chapter.subContent?.map((pt: string, idx: number) => (
+                          <li key={idx} className="leading-snug">
+                            {pt}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div className="pt-1.5 pl-9 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        Video composition state verified.
                       </div>
                     </div>
-                    
-                    {chapter.isRendered && (
-                      <div className="bg-indigo-50/40 border-t border-indigo-100/40 px-5 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-indigo-600 tracking-wide">
-                        <CheckCircle2 className="w-3 h-3" /> Core production media cache loaded safely.
+
+                    {/* Compact Interactive Chapter Preview Window */}
+                    <div
+                      onClick={() => handleChapterSelect(chapter)}
+                      className="w-full md:w-40 aspect-video rounded-xl overflow-hidden relative border border-zinc-200 bg-zinc-50 group cursor-pointer shrink-0 shadow-sm"
+                    >
+                      <div className="absolute inset-0 bg-zinc-950/5 z-10 flex flex-col items-center justify-center group-hover:bg-zinc-950/20 transition-all">
+                        <div className="w-9 h-9 rounded-full bg-white border border-zinc-200 flex items-center justify-center group-hover:scale-105 group-hover:border-[#2563eb] transition-all shadow-sm">
+                          <Play
+                            className={`w-3.5 h-3.5 ml-0.5 fill-current ${
+                              isSelected ? "text-[#2563eb]" : "text-zinc-600"
+                            }`}
+                          />
+                        </div>
+                        <span
+                          className={`text-[9px] uppercase font-bold tracking-widest mt-2 transition-all ${
+                            isSelected
+                              ? "text-[#2563eb]"
+                              : "text-zinc-500 group-hover:text-zinc-700"
+                          }`}
+                        >
+                          {isSelected ? "Now Playing" : "Click to Preview"}
+                        </span>
                       </div>
-                    )}
-                  </Card>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Right Side Timeline Segments Panel */}
+        <aside className="lg:col-span-4 space-y-4 text-left">
+          <div className="border-b border-zinc-200 pb-3">
+            <h2 className="text-lg font-bold tracking-tight text-zinc-900">
+              Active Layout Segments
+            </h2>
+          </div>
+
+          <div className="bg-white border border-zinc-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-2xl p-4 space-y-3">
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex justify-between items-center border-b border-zinc-100 pb-2.5">
+              <span>Timeline Nodes</span>
+              <Badge
+                variant="secondary"
+                className="bg-blue-50 text-[#2563eb] border-none font-semibold text-[10px] hover:bg-blue-50"
+              >
+                {activeChapter?.slides?.length || 0} Slides
+              </Badge>
+            </div>
+
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              {activeChapter?.slides?.map((slide: any) => {
+                const words = slide.captions?.words || [];
+                const durationSeconds =
+                  words.length > 0 ? words[words.length - 1].end : 0;
+
+                return (
+                  <div
+                    key={slide.slideId}
+                    className="w-full p-3 rounded-xl border border-zinc-100 bg-zinc-50/50 flex items-start gap-3 transition-all hover:border-zinc-200"
+                  >
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#2563eb]/80 mt-1.5 shrink-0" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-zinc-800 tracking-tight leading-tight">
+                        {slide.title}
+                      </h4>
+                      <p className="text-[10px] text-zinc-400 font-semibold flex items-center gap-1">
+                        <Clock3 className="w-3 h-3 text-zinc-300" />
+                        {durationSeconds
+                          ? `${durationSeconds.toFixed(1)}s`
+                          : "Calculating..."}
+                      </p>
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </div>
-
-          {/* Video Player monitoring column */}
-          <div className="lg:col-span-5 lg:sticky lg:top-20">
-            <Card className="border-slate-200 shadow-xl bg-white rounded-2xl overflow-hidden border">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Film className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                    Remotion Production Monitor Node
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5 space-y-4">
-                <div className="w-full aspect-video bg-slate-950 rounded-xl flex flex-col items-center justify-center relative overflow-hidden border border-slate-900 shadow-inner">
-                  {activeChapterData?.videoUrl ? (
-                    <div className="w-full h-full relative remotion-player-custom-wrapper">
-                      <Player
-                        key={activeChapterData.chapterId} 
-                        component={CourseComposition}
-                        inputProps={{
-                          title: activeChapterData.title,
-                          subtitle: activeChapterData.subtitle || "Automated System Blueprint",
-                          htmlContent: activeChapterData.htmlContent || "<div>No Workspace Document Parsed</div>",
-                          audioFileUrl: activeChapterData.videoUrl,
-                          captions: activeChapterData.captions || [],
-                        }}
-                        durationInFrames={Math.ceil(30 * (activeChapterData.durationSeconds || 6.0))}
-                        fps={30}
-                        compositionWidth={1280}
-                        compositionHeight={720}
-                        style={{ width: "100%", height: "100%" }}
-                        controls
-                        autoPlay
-                      />
-                    </div>
-                  ) : (
-                    <div className="text-center space-y-2 p-6">
-                      <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center border border-slate-800 mx-auto text-slate-600">
-                        <Video className="w-4 h-4" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-slate-400">Player Stream Standby</h4>
-                        <p className="text-[10px] text-slate-500 max-w-[210px] mx-auto leading-normal">
-                          Synthesize or open a compiled chapter card on the left panel to execute streaming rendering.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 flex gap-3 items-start">
-                  <HelpCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <h5 className="text-xs font-bold text-slate-700">Dynamic Synchronization Engine:</h5>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      The active monitoring timeline automatically scales length boundaries based on voice data streams to eliminate sudden frame cutoffs.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
-      </div>
+        </aside>
+      </main>
     </div>
   );
 }

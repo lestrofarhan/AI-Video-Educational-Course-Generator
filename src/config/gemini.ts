@@ -1,9 +1,14 @@
 // src/config/gemini.ts
 import { GoogleGenAI } from "@google/genai";
 
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("Missing GEMINI_API_KEY environment variable.");
+export const aiEngine = process.env.GEMINI_API_KEY
+  ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+  : null;
+
+export function getGeminiClient() {
+  return aiEngine;
 }
 
-// Initialize the modern Google Gen AI client wrapper
-export const aiEngine = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+export function hasGeminiClient() {
+  return Boolean(aiEngine);
+}

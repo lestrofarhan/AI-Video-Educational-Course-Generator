@@ -46,6 +46,7 @@ export default function LandingPage() {
   const [prompt, setPrompt] = useState<string>("");
   const [courseType, setCourseType] = useState<string>("full");
   const [loading, setLoading] = useState<boolean>(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [userCourses, setUserCourses] = useState<UserCourse[]>([]);
   const [coursesLoading, setCoursesLoading] = useState<boolean>(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -60,21 +61,35 @@ export default function LandingPage() {
     setCourseType(selectedType);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!prompt.trim()) return;
 
     setLoading(true);
+    setGenerationError(null);
 
-    // 1. Create a unique ID for this new course track
-    const uniqueCourseId = crypto.randomUUID();
+    try {
+      const response = await fetch("/api/courses/generate-layout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          type: courseType,
+        }),
+      });
 
-    // 2. Safe URL Encoding for your prompt string text
-    const encodedPrompt = encodeURIComponent(prompt.trim());
+      const data = await response.json();
 
-    // 3. Forward instantly to the preview page where generation runs automatically!
-    router.push(
-      `/course/${uniqueCourseId}?prompt=${encodedPrompt}&type=${courseType}`,
-    );
+      if (!response.ok) {
+        throw new Error(data.details || data.message || "Failed to generate course layout.");
+      }
+
+      router.push(`/course/${data.courseId}`);
+    } catch (error: any) {
+      setGenerationError(error?.message || "Failed to generate course layout.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -208,6 +223,12 @@ export default function LandingPage() {
               )}
             </button>
           </div>
+
+          {generationError && (
+            <p className="px-1 pt-2 text-xs font-medium text-rose-600">
+              {generationError}
+            </p>
+          )}
         </div>
 
         <div className="mt-7 w-full max-w-2xl px-1">

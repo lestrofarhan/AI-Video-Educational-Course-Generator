@@ -7,6 +7,7 @@ import {
   jsonb,
   timestamp,
   text,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -41,5 +42,12 @@ export const chapterContentSlides = pgTable("chapter_content_slides", {
   htmlContent: text("html_content").notNull(), // Self-contained code string with Tailwind CDN
   revelData: jsonb("revel_data").notNull(), // Array of reveal keys: ["r1", "r2", ...]
   captions: jsonb("captions"), // Timestamps for synchronization
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const audioTracks = pgTable("audio_tracks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  promptText: text("prompt_text").notNull(),
+  audioData: text("audio_data").notNull(), // Stores the base64 encoded audio string
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
