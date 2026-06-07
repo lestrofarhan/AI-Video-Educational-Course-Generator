@@ -1,11 +1,29 @@
-import { cn } from "@/lib/utils"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Loading03Icon } from "@hugeicons/core-free-icons"
+import * as React from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Loading03Icon } from "@hugeicons/core-free-icons";
+import { cn } from "@/lib/utils";
 
-function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
-  return (
-    <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} role="status" aria-label="Loading" className={cn("size-4 animate-spin", className)} {...props} />
-  )
+// 1. Use Omit to remove the native 'strokeWidth' (string | number) from SVG props
+interface SpinnerProps extends Omit<
+  React.ComponentProps<"svg">,
+  "strokeWidth"
+> {
+  // 2. Explicitly define it to match what HugeiconsIcon expects
+  strokeWidth?: number;
 }
 
-export { Spinner }
+// 3. Destructure strokeWidth explicitly with a default fallback value
+function Spinner({ className, strokeWidth = 2, ...props }: SpinnerProps) {
+  return (
+    <HugeiconsIcon
+      icon={Loading03Icon}
+      strokeWidth={strokeWidth} // This is now safely recognized as a strict number
+      role="status"
+      aria-label="Loading..."
+      className={cn("animate-spin", className)}
+      {...props}
+    />
+  );
+}
+
+export { Spinner };
