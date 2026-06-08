@@ -80,12 +80,19 @@ export default function LandingPage() {
 
       const data = await response.json();
 
+      if (response.status === 401 ) {
+        router.push("/sign-in");
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(data.details || data.message || "Failed to generate course layout.");
       }
 
+
       router.push(`/course/${data.courseId}`);
     } catch (error: any) {
+      console.log(error , "error in handleGenerate");
       setGenerationError(error?.message || "Failed to generate course layout.");
     } finally {
       setLoading(false);

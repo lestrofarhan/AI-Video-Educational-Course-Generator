@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
+import { currentUser, auth } from "@clerk/nextjs/server";
 import { randomUUID } from "crypto";
 import { aiEngine } from "@/config/gemini";
 import { db } from "@/config/db";
 import { courses } from "@/config/schema";
+import { eq, count } from "drizzle-orm";
 
 type CourseMode = "full" | "quick";
 
@@ -256,12 +257,10 @@ async function tryGroq(
     };
   }
 
-  // Updated to point to active non-deprecated Groq models
   const candidates = [
     process.env.GROQ_MODEL,
     "llama-3.3-70b-versatile",
     "qwen/qwen3-32b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
   ].filter(Boolean) as string[];
   let lastError = "";
 
@@ -344,12 +343,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 1. Get authenticated user from Clerk server session
     const clerkUser = await currentUser();
-    const userId =
-      clerkUser?.emailAddresses[0]?.emailAddress ||
-      (typeof body?.userId === "string" && body.userId.trim()
-        ? body.userId.trim()
-        : "guest_user_fallback@clerk.dev");
+    if (!clerkUser) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized account request session." },
+        { status: 401 },
+      );
+    }
+
+    const userId = clerkUser.emailAddresses[0]?.emailAddress;
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Account setup error: Primary email address missing.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // 2. Premium Guard Layer using Clerk subscription plan verification
+    const { has } = await auth();
+    const isPremium = has({ plan: "monthly" });
+
+    if (!isPremium) {
+      // Free users are restricted to a total lifetime limit of 2 courses
+      const [result] = await db
+        .select({ count: count() })
+        .from(courses)
+        .where(eq(courses.userId, userId));
+
+      const existingCourseCount = result?.count || 0;
+
+      if (existingCourseCount >= 2) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Free trial course limit reached.",
+            details:
+              "You have already generated 2 free courses. Please upgrade to our monthly premium tier to get unlimited AI generation access.",
+            limitReached: true,
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     const courseId = providedCourseId || randomUUID();
     const courseSlug = slugify(courseId);
 
@@ -390,7 +430,7 @@ export async function POST(request: NextRequest) {
       .values({
         courseId,
         courseName,
-        userId,
+        userId, // Clerk user's email matching schema parameters
         userInput,
         type: mode,
         courseLayout: finalResult.layout,
